@@ -5,7 +5,12 @@ import LoadingSpinner from '../LoadingSpinner';
 import ShowAlert from '../ShowAlert/ShowAlert';
 import PaginationComponent from '../PaginationComponent';
 
-function RatedMovies({ ratedMovies, fetchRatedMovies, totalPages }) {
+function RatedMovies({
+  ratedMovies,
+  fetchRatedMovies,
+  totalPages,
+  guestSessionId,
+}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [page, setPage] = useState(1);
@@ -40,7 +45,15 @@ function RatedMovies({ ratedMovies, fetchRatedMovies, totalPages }) {
       <Row gutter={[16, 16]} justify="center">
         {ratedMovies.map((movie) => (
           <Col key={movie.id} xs={24} sm={24} md={24} lg={12} xl={12}>
-            <MovieCard movie={movie} />
+            <MovieCard
+              movie={movie}
+              guestSessionId={guestSessionId}
+              onRateSuccess={() =>
+                fetchRatedMovies(page).catch(() =>
+                  setError('Не удалось обновить оценки.'),
+                )
+              }
+            />
           </Col>
         ))}
       </Row>

@@ -1,4 +1,4 @@
-git remote add origin https://github.com/Milo78k/MovieApp.git# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
 /node_modules

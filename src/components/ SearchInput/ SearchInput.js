@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { debounce } from 'lodash';
 import { Input } from 'antd';
 
@@ -11,6 +11,7 @@ function SearchInput({ setQuery, setPage }) {
       }, 500),
     [setPage, setQuery],
   );
+  useEffect(() => () => handleSearch.cancel(), [handleSearch]);
   return (
     <Input
       placeholder="Type to search..."

@@ -6,19 +6,31 @@ import Rating from '../Rating';
 import { rateMovie } from '../../api/rateMovie';
 import './MovieCard.css';
 
-function MovieCard({ movie, guestSessionId, rating: initialRating }) {
+function MovieCard({
+  movie,
+  guestSessionId,
+  rating: initialRating,
+  onRateSuccess,
+}) {
+  const [error, setError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   const [rating, setRating] = useState(initialRating || movie.rating || 0);
 
   useEffect(() => {
-    setRating(movie.rating);
+    setRating(movie.rating || 0);
   }, [movie.rating]);
 
   const handleRate = async (value) => {
+    setIsSaving(true);
+    setError('');
     try {
       await rateMovie(movie.id, value, guestSessionId);
       setRating(value);
+      if (onRateSuccess) onRateSuccess();
     } catch (err) {
-      console.error('Ошибка при оценке фильма:', err);
+      setError('Не удалось сохранить оценку. Попробуйте ещё раз.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -38,7 +50,12 @@ function MovieCard({ movie, guestSessionId, rating: initialRating }) {
         />
       </div>
       <div className="movie-rating">
-        <Rating value={rating} onChange={handleRate} />
+        <Rating
+          value={rating}
+          onChange={handleRate}
+          disabled={isSaving || !guestSessionId}
+        />
+        {error && <p role="alert">{error}</p>}
       </div>
     </div>
   );

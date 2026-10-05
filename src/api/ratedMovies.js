@@ -1,28 +1,10 @@
-import axios from 'axios';
-import { createGuestSession } from './guestSession';
+import { requestTmdb } from './tmdb';
 
-const API_KEY = '716129ae124d90d45aa6c2493a69e577';
-
-// Функция для получения оцененных фильмов
 export const fetchRatedMovies = async (guestSessionId, page = 1) => {
-  let sessionId = guestSessionId;
-
-  // Если sessionId пустой, создаем новый
-  if (!sessionId) {
-    sessionId = await createGuestSession();
-    if (!sessionId) return null;
-  }
-
-  try {
-    const res = await axios.get(
-      `https://api.themoviedb.org/3/guest_session/${sessionId}/rated/movies?api_key=${API_KEY}&page=${page}`,
-    );
-    return {
-      movies: res.data.results || [],
-      totalPages: res.data.total_pages,
-    };
-  } catch (err) {
-    console.error('Ошибка загрузки оцененных фильмов:', err);
-    return null;
-  }
+  if (!guestSessionId) throw new Error('Гостевая сессия ещё не готова.');
+  const data = await requestTmdb(
+    `/guest_session/${guestSessionId}/rated/movies`,
+    { params: { page } },
+  );
+  return { movies: data.results || [], totalPages: data.total_pages || 0 };
 };

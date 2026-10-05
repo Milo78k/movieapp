@@ -8,7 +8,7 @@ import SearchInput from '../ SearchInput';
 import './Movie.css';
 import { searchMovies } from '../../api/movies';
 
-function Movie({ guestSessionId, handleRatingUpdate }) {
+function Movie({ guestSessionId, onRateSuccess }) {
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -16,34 +16,45 @@ function Movie({ guestSessionId, handleRatingUpdate }) {
   const [page, setPage] = useState(1);
   const [totalResults, setTotalResults] = useState(0);
 
-  const fetchMovies = useCallback(async () => {
-    if (!query.trim()) return;
+  const fetchMovies = useCallback(
+    async (signal) => {
+      if (!query.trim()) {
+        setMovies([]);
+        setTotalResults(0);
+        setLoading(false);
+        setError('');
+        return;
+      }
 
-    setLoading(true);
-    setError('');
+      setLoading(true);
+      setError('');
 
-    try {
-      const { movies: fetchedMovies, totalResults: fetchedTotal } =
-        await searchMovies(query, page);
-      setMovies(fetchedMovies);
-      setTotalResults(fetchedTotal);
-    } catch {
-      setError('Не удалось загрузить данные.');
-    } finally {
-      setLoading(false);
-    }
-  }, [query, page]);
+      try {
+        const { movies: fetchedMovies, totalResults: fetchedTotal } =
+          await searchMovies(query, page, signal);
+        if (signal.aborted) return;
+        setMovies(fetchedMovies);
+        setTotalResults(fetchedTotal);
+      } catch {
+        if (!signal.aborted) setError('Не удалось загрузить данные.');
+      } finally {
+        if (!signal.aborted) setLoading(false);
+      }
+    },
+    [query, page],
+  );
 
   useEffect(() => {
-    fetchMovies();
+    const controller = new AbortController();
+    fetchMovies(controller.signal);
+    return () => controller.abort();
   }, [fetchMovies]);
-
-  if (loading) return <LoadingSpinner />;
-  if (error) return <ShowAlert message={error} type="error" />;
 
   return (
     <div className="movie">
       <SearchInput query={query} setQuery={setQuery} setPage={setPage} />
+      {loading && <LoadingSpinner />}
+      {error && <ShowAlert message={error} type="error" />}
       {movies.length === 0 && query && !loading && <p>Ничего не найдено</p>}
       <Row gutter={[16, 16]} justify="center">
         {movies.map((movie) => (
@@ -59,7 +70,7 @@ function Movie({ guestSessionId, handleRatingUpdate }) {
             <MovieCard
               movie={movie}
               guestSessionId={guestSessionId}
-              onRateSuccess={handleRatingUpdate}
+              onRateSuccess={onRateSuccess}
             />
           </Col>
         ))}

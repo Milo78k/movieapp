@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Tabs } from 'antd';
-import { createGuestSession } from '../../api/guestSession';
+import { createGuestSessionProvider } from '../../api/guestSession';
 import { fetchRatedMovies } from '../../api/ratedMovies';
 import Movie from '../Movie';
 import RatedMovies from '../RatedMovies';
@@ -8,50 +8,53 @@ import { GenresProvider } from '../GenresContext';
 
 function App() {
   const [guestSessionId, setGuestSessionId] = useState(null);
+  const [sessionError, setSessionError] = useState('');
   const [ratedMovies, setRatedMovies] = useState([]);
   const [activeTab, setActiveTab] = useState('1');
   const [totalPages, setTotalPages] = useState(0);
+  const getSession = useMemo(() => createGuestSessionProvider(), []);
 
-  // Создание гостевой сессии
-  const createGuestSessionHandler = useCallback(async () => {
-    const sessionId = await createGuestSession();
+  const ensureSession = useCallback(async () => {
+    const sessionId = await getSession();
     setGuestSessionId(sessionId);
-  }, []);
+    setSessionError('');
+    return sessionId;
+  }, [getSession]);
 
-  // Получение оцененных фильмов
   const fetchRatedMoviesData = useCallback(
     async (page = 1) => {
-      if (!guestSessionId) {
-        await createGuestSessionHandler();
-      }
-
-      const result = await fetchRatedMovies(guestSessionId, page);
-      if (result) {
-        setRatedMovies(result.movies);
-        setTotalPages(result.totalPages);
-      }
+      const sessionId = await ensureSession();
+      const result = await fetchRatedMovies(sessionId, page);
+      setRatedMovies(result.movies);
+      setTotalPages(result.totalPages);
     },
-    [guestSessionId, createGuestSessionHandler],
+    [ensureSession],
   );
 
   const handleRatingUpdate = () => {
-    fetchRatedMoviesData();
+    fetchRatedMoviesData().catch(() =>
+      setSessionError('Оценка сохранена, но список Rated не удалось обновить.'),
+    );
   };
 
-  useEffect(() => {
-    if (activeTab === '2') {
-      fetchRatedMoviesData();
-    }
-  }, [activeTab, fetchRatedMoviesData]);
+  const retrySession = useCallback(() => {
+    ensureSession().catch((error) => setSessionError(error.message));
+  }, [ensureSession]);
 
   useEffect(() => {
-    if (!guestSessionId) {
-      createGuestSessionHandler();
-    }
-  }, [guestSessionId, createGuestSessionHandler]);
+    retrySession();
+  }, [retrySession]);
 
   return (
     <GenresProvider>
+      {sessionError && (
+        <div role="alert">
+          {sessionError}{' '}
+          <button type="button" onClick={retrySession}>
+            Повторить
+          </button>
+        </div>
+      )}
       <Tabs
         activeKey={activeTab}
         onChange={setActiveTab}
@@ -70,18 +73,19 @@ function App() {
           {
             key: '2',
             label: 'Rated',
-            children: (
-              <RatedMovies
-                ratedMovies={ratedMovies}
-                fetchRatedMovies={fetchRatedMoviesData}
-                totalPages={totalPages}
-              />
-            ),
+            children:
+              activeTab === '2' ? (
+                <RatedMovies
+                  ratedMovies={ratedMovies}
+                  fetchRatedMovies={fetchRatedMoviesData}
+                  totalPages={totalPages}
+                  guestSessionId={guestSessionId}
+                />
+              ) : null,
           },
         ]}
       />
     </GenresProvider>
   );
 }
-
 export default App;
